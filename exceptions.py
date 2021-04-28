@@ -1,0 +1,2 @@
+# BoardOutException
+# DoubleShotException
