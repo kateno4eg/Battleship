@@ -1,4 +1,5 @@
-from inner_logic import Board, Dot, N
+from exceptions import BoardException, BoardWrongShipException
+from inner_logic import Board, Dot, Ship, N
 from random import randint
 
 
@@ -8,17 +9,21 @@ class Player:
         self.ai_board = ai_board
 
     def ask(self):
-        pass
+        raise NotImplementedError()
 
     def move(self):
-        self.ask()
-        self.shot()
-        return True
+        while True:
+            try:
+                target = self.ask()
+                repeat = self.ai_board.shot(target)
+                return repeat
+            except BoardException as e:
+                print(e)
 
 
 class AI(Player):
     def ask(self):
-        dot = Dot(randint(range(N)), randint(range(N)))
+        dot = Dot(randint(0, N), randint(0, N))
         print(f'ИИ нанес вам ответный удар: {dot.x+1} {dot.y+1}')
 
 
@@ -38,16 +43,38 @@ class User(Player):
 
 
 class Game:
-    def __init__(self, user, user_board, ai, ai_board):
-        self.user = user
-        self.user_board = user_board
-        self.ai = ai
-        self.ai_board = ai_board
+    def __init__(self, size=N):
+        self.size = size
+        player = self.random_board()
+        ai = self.random_board()
+        ai.hid = True
+
+        self.ai = AI(ai, player)
+        self.user = User(player, ai)
 
     def random_board(self):
-        empty_grid = [["O" for c in range(N)] for r in range(N)]
-        grid = empty_grid
-        return grid
+        board = None
+        while board is None:
+            board = self.random_place()
+        return board
+
+    def random_place(self):
+        lens = [3, 2, 2, 1, 1, 1, 1]
+        board = Board(size=self.size)
+        attempts = 0
+        for l in lens:
+            while True:
+                attempts += 1
+                if attempts > 2000:
+                    return None
+                ship = Ship(Dot(randint(0, N), randint(0, N)), l, randint(0, 1))
+                try:
+                    board.add_ship(ship)
+                    break
+                except BoardWrongShipException:
+                    pass
+        board.begin()
+        return board
 
     @staticmethod
     def greet():
@@ -55,8 +82,37 @@ class Game:
         print("Формат ввода координат: x - номер строки, y - номер столбца.")
 
     def loop(self):
-        return True
+        num = 0
+        while True:
+            print("-" * 20)
+            print("Доска пользователя:")
+            print(self.user.user_board)
+            print("-" * 20)
+            print("Доска компьютера:")
+            print(self.ai.ai_board)
+            if num % 2 == 0:
+                print("-" * 20)
+                print("Ходит пользователь!")
+                repeat = self.user.move()
+            else:
+                print("-" * 20)
+                print("Ходит компьютер!")
+                repeat = self.ai.move()
+            if repeat:
+                num -= 1
+
+            if self.ai.ai_board.count == 7:
+                print("-" * 20)
+                print("Пользователь выиграл!")
+                break
+
+            if self.user.user_board.count == 7:
+                print("-" * 20)
+                print("Компьютер выиграл!")
+                break
+            num += 1
 
     def start(self):
         self.greet()
         self.loop()
+

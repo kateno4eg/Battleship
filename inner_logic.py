@@ -1,3 +1,5 @@
+from exceptions import BoardUsedException, BoardWrongShipException, BoardOutException
+
 N = 6
 cruiser_number = 1
 destroyer_number = 2
@@ -12,53 +14,118 @@ class Dot:
         self.x = x
         self.y = y
 
-    def _eq_(self):
-        return True
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
+    def __repr__(self):
+        return f"({self.x}, {self.y})"
 
 
 class Ship:
-    def __init__(self, length, dot, direction, lives):
+    def __init__(self, bow, length, direction):
+        self.bow = bow
         self.length = length
-        self.dot = dot
         self.direction = direction
-        self.lives = lives
+        self.lives = length
 
+    @property
     def dots(self):
-        return True
+        ship_dots = []
+        for i in range(self.length):
+            cur_x = self.bow.x
+            cur_y = self.bow.y
+
+            if self.direction == 0:
+                cur_x += i
+
+            elif self.direction == 1:
+                cur_y += i
+
+            ship_dots.append(Dot(cur_x, cur_y))
+
+        return ship_dots
+
+    def shooten(self, shot):
+        return shot in self.dots
 
 
 class Board:
-    def __init__(self, grid, ship_list, balance, hid=True):
-        self.grid = grid
-        self.ship_list = ship_list
-        self.balance = balance
+    def __init__(self, hid=False, size=N):
+        self.size = size
         self.hid = hid
 
-# Метод ставит корабль на доску (если ставить не получается, выбрасываем исключения).
-    def add_ship(self):
-        return True
+        self.count = 0
 
-# Метод contour, который обводит корабль по контуру.
-#  Он будет полезен и в ходе самой игры, и в при расстановке кораблей
-#  (помечает соседние точки, где корабля по правилам быть не может).
-    def contour(self):
-        return True
+        self.grid = [["O"] * size for _ in range(size)]
 
-# Метод, который выводит доску в консоль в зависимости от параметра hid.
-    def print_out(self, hid):
-        return True
+        self.busy = []
+        self.ships = []
 
-# Метод out, который для точки (объекта класса Dot) возвращает True,
-# если точка выходит за пределы поля, и False, если не выходит.
-    def out(self):
-        return True
+    def add_ship(self, ship):
 
-# Метод shot, который делает выстрел по доске
-# (если есть попытка выстрелить за пределы и в использованную точку, нужно выбрасывать исключения).
-    def shot(self):
-        return True
+        for d in ship.dots:
+            if self.out(d) or d in self.busy:
+                raise BoardWrongShipException()
+        for d in ship.dots:
+            self.grid[d.x][d.y] = "■"
+            self.busy.append(d)
 
+        self.ships.append(ship)
+        self.contour(ship)
 
+    def contour(self, ship, verb=False):
+        near = [
+            (-1, -1), (-1, 0), (-1, 1),
+            (0, -1), (0, 0), (0, 1),
+            (1, -1), (1, 0), (1, 1)
+        ]
+        for d in ship.dots:
+            for dx, dy in near:
+                cur = Dot(d.x + dx, d.y + dy)
+                if not (self.out(cur)) and cur not in self.busy:
+                    if verb:
+                        self.grid[cur.x][cur.y] = "."
+                    self.busy.append(cur)
 
+    def __str__(self):
+        res = ""
+        res += "  | 1 | 2 | 3 | 4 | 5 | 6 |"
+        for i, row in enumerate(self.grid):
+            res += f"\n{i + 1} | " + " | ".join(row) + " |"
 
+        if self.hid:
+            res = res.replace("■", "O")
+        return res
+
+    def out(self, d):
+        return not ((0 <= d.x < self.size) and (0 <= d.y < self.size))
+
+    def shot(self, d):
+        if self.out(d):
+            raise BoardOutException()
+
+        if d in self.busy:
+            raise BoardUsedException()
+
+        self.busy.append(d)
+
+        for ship in self.ships:
+            if d in ship.dots:
+                ship.lives -= 1
+                self.grid[d.x][d.y] = "X"
+                if ship.lives == 0:
+                    self.count += 1
+                    self.contour(ship, verb=True)
+                    print("Корабль уничтожен!")
+                    return False
+                else:
+                    print("Корабль ранен!")
+                    return True
+
+        self.grid[d.x][d.y] = "."
+        print("Мимо!")
+        return False
+
+    def begin(self):
+        self.busy = []
 
